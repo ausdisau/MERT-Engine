@@ -57,7 +57,7 @@ export default function App() {
           <Text>Advance +180s</Text>
         </Pressable>
 
-        <View accessibilityRole="summary" style={styles.notice}>
+        <View accessible accessibilityLabel="Protected simulation invariants" style={styles.notice}>
           <Text style={styles.heading}>Protected invariants</Text>
           <Text>AAC failure ≠ incapacity</Text>
           <Text>Disability ≠ acute deterioration</Text>
