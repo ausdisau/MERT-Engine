@@ -2,7 +2,7 @@ import { planPopulation, type PlannedActivity } from './autonomy';
 import { assessClinicalTrigger, bridgeToClinicalRuntime, type ClinicalRuntimePort } from './clinicalBridge';
 import { proposeDynamics, dynamicsEvents, type DynamicsProposal } from './vnnDynamics';
 import { defaultSocialAgents, interact, socialEvents } from './socialAgents';
-import { TimelineStore } from './timeline';
+import { WorldTimeline } from './timeline';
 import type { PersonEntity, PersistentWorldState, PersistentWorldStore, Vec3, WorldEvent } from './worldModel';
 
 export interface LiveWorldFrame {
@@ -14,7 +14,7 @@ export interface LiveWorldFrame {
 
 export class LiveWorldRuntime {
   private accumulator = 0;
-  private timeline = new TimelineStore();
+  private timeline = new WorldTimeline();
   private lastFrame?: LiveWorldFrame;
 
   constructor(private store: PersistentWorldStore, private clinicalRuntime?: ClinicalRuntimePort) {}
@@ -51,7 +51,7 @@ export class LiveWorldRuntime {
       }
     }
 
-    this.timeline.capture('live', this.store.snapshot(), `live world at ${Math.round(next.simulationSeconds)}s`);
+    this.timeline.capture(this.store.snapshot(), `live world at ${Math.round(next.simulationSeconds)}s`);
     this.lastFrame = { state: this.store.snapshot(), activities, proposals, clinical };
     return this.lastFrame;
   }
