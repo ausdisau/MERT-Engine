@@ -1,0 +1,12 @@
+{
+  "expo": {
+    "name": "MERT Engine",
+    "slug": "mert-engine",
+    "version": "0.6.0",
+    "orientation": "default",
+    "platforms": ["ios", "android", "web"],
+    "web": {
+      "bundler": "metro"
+    }
+  }
+}
