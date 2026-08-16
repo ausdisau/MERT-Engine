@@ -88,6 +88,13 @@ export class PersistentWorldStore {
     this.persist();
   }
 
+  upsertEntity(entity: OpenWorldEntity) {
+    const index = this.state.entities.findIndex((item) => item.id === entity.id);
+    if (index >= 0) this.state.entities[index] = JSON.parse(JSON.stringify(entity)) as OpenWorldEntity;
+    else this.state.entities.push(JSON.parse(JSON.stringify(entity)) as OpenWorldEntity);
+    this.persist();
+  }
+
   setInfrastructure(id: string, operational: boolean) {
     const entity = this.entity(id);
     if (!entity || entity.kind !== 'infrastructure') return;
@@ -120,9 +127,7 @@ export class PersistentWorldStore {
     this.persist();
   }
 
-  private record(type: string, entityId: string, detail: string) {
-    this.recordEvent(type, entityId, detail);
-  }
+  private record(type: string, entityId: string, detail: string) { this.recordEvent(type, entityId, detail); }
 
   private persist() {
     if (typeof window !== 'undefined') window.localStorage?.setItem('mert-open-world-v1', JSON.stringify(this.state));
