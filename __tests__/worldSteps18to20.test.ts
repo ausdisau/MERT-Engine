@@ -1,0 +1,13 @@
+import { PersistentWorldStore, initialOpenWorldState, type PersonEntity } from '../src/world/worldModel';
+import { WorldRuntime } from '../src/world/liveWorldLoop';
+import { ensurePopulation, relationships } from '../src/world/population';
+import { createSpatialIntent, evaluateSpatialIntent, nearbyEntities, wayfind } from '../src/world/spatialInteraction';
+
+describe('Steps 18-20 world integration',()=>{
+  test('population seeds multiple self-authoritative people and relationships',()=>{const store=new PersistentWorldStore(initialOpenWorldState);ensurePopulation(store);const people=store.snapshot().entities.filter(e=>e.kind==='person') as PersonEntity[];expect(people.length).toBeGreaterThanOrEqual(4);expect(people.every(p=>p.authority==='self')).toBe(true);expect(relationships.length).toBeGreaterThan(0);});
+  test('WorldRuntime is authoritative and advances population without changing authority',()=>{const store=new PersistentWorldStore(initialOpenWorldState);const runtime=new WorldRuntime(store);runtime.step(3);runtime.step(3);const maya=store.entity('maya') as PersonEntity;expect(maya.authority).toBe('self');expect(runtime.snapshot().activities.length).toBeGreaterThan(0);});
+  test('semantic interaction is modality-independent',()=>{const store=new PersistentWorldStore(initialOpenWorldState);ensurePopulation(store);const state=store.snapshot();const touch=createSpatialIntent('maya','liam','communicate','touch');const xr=createSpatialIntent('maya','liam','communicate','xr-controller');expect(evaluateSpatialIntent(state,touch).allowed).toBe(evaluateSpatialIntent(state,xr).allowed);});
+  test('AAC loss blocks immediate communication action but preserves intent and authority',()=>{const store=new PersistentWorldStore(initialOpenWorldState);ensurePopulation(store);store.setCommunicationAccess('maya','unavailable');const result=evaluateSpatialIntent(store.snapshot(),createSpatialIntent('maya','liam','communicate','switch'));expect(result.allowed).toBe(false);expect(result.reason).toContain('intent is preserved');expect((store.entity('maya') as PersonEntity).authority).toBe('self');});
+  test('wayfinding attributes failed infrastructure to environment',()=>{const store=new PersistentWorldStore(initialOpenWorldState);store.setInfrastructure('station-lift',false);const route=wayfind(store.snapshot(),'maya','station-lift');expect(route?.accessible).toBe(false);expect(route?.reason).toContain('environmental infrastructure unavailable');});
+  test('nearby discovery supports non-spatial equivalent of proximity interaction',()=>{const store=new PersistentWorldStore(initialOpenWorldState);ensurePopulation(store);const near=nearbyEntities(store.snapshot(),'maya',30);expect(near.length).toBeGreaterThan(0);});
+});
