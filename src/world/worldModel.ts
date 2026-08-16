@@ -102,10 +102,26 @@ export class PersistentWorldStore {
     this.record('communication.access.changed', id, `${entity.label} communication access: ${access}`);
   }
 
-  private record(type: string, entityId: string, detail: string) {
-    this.state.events.push({ id: `${this.state.simulationSeconds}-${this.state.events.length}`, at: this.state.simulationSeconds, type, entityId, detail });
-    this.state.events = this.state.events.slice(-100);
+  appendEvents(events: WorldEvent[]) {
+    this.state.events.push(...events);
+    this.state.events = this.state.events.slice(-250);
     this.persist();
+  }
+
+  recordEvent(type: string, entityId: string | undefined, detail: string) {
+    const id = `${this.state.simulationSeconds}-${this.state.events.length}-${type}`;
+    const event: WorldEvent = { id, at: this.state.simulationSeconds, type, detail, ...(entityId ? { entityId } : {}) };
+    this.appendEvents([event]);
+    return event;
+  }
+
+  reset(seed: PersistentWorldState = initialOpenWorldState) {
+    this.state = JSON.parse(JSON.stringify(seed)) as PersistentWorldState;
+    this.persist();
+  }
+
+  private record(type: string, entityId: string, detail: string) {
+    this.recordEvent(type, entityId, detail);
   }
 
   private persist() {
