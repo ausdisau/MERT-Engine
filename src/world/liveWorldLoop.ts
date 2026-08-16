@@ -3,7 +3,7 @@ import { assessClinicalTrigger, bridgeToClinicalRuntime, type ClinicalRuntimePor
 import { defaultSchedules, runDailyLifeTick } from './dailyLife';
 import { defaultSocialAgents, interact, socialEvents } from './socialAgents';
 import { dynamicsEvents, proposeDynamics, type DynamicsProposal } from './vnnDynamics';
-import type { PersonEntity, PersistentWorldState, PersistentWorldStore } from './worldModel';
+import type { PersonEntity, PersistentWorldState, PersistentWorldStore, Vec3 } from './worldModel';
 
 export interface LiveWorldFrame {
   activities: ReturnType<typeof planPopulation>;
@@ -24,7 +24,8 @@ export class LiveWorldLoop {
     this.store.tick(realSeconds);
     this.accumulator += realSeconds;
     this.socialAccumulator += realSeconds;
-    if (this.accumulator < 5) return this.lastFrame;
+    if (this.accumulator < 2) return this.lastFrame;
+    const stepSeconds = this.accumulator;
     this.accumulator = 0;
 
     let state = this.store.snapshot();
@@ -35,6 +36,7 @@ export class LiveWorldLoop {
     const activities = planPopulation(state);
     const proposals = activities.map((activity) => proposeDynamics(state, activity));
     this.store.appendEvents(proposals.flatMap((proposal) => dynamicsEvents(state, proposal)));
+    for (const activity of activities) this.advanceActivity(state, activity, stepSeconds);
 
     if (this.socialAccumulator >= 15) {
       this.socialAccumulator = 0;
@@ -60,5 +62,19 @@ export class LiveWorldLoop {
 
     this.lastFrame = { activities, proposals, clinical };
     return this.lastFrame;
+  }
+
+  private advanceActivity(state: PersistentWorldState, activity: ReturnType<typeof planPopulation>[number], seconds: number) {
+    if (!activity.targetId || (activity.kind !== 'travel' && activity.kind !== 'seek-alternative')) return;
+    const person = state.entities.find((entity): entity is PersonEntity => entity.kind === 'person' && entity.id === activity.personId);
+    const target = state.entities.find((entity) => entity.id === activity.targetId);
+    if (!person || !target) return;
+    const [px, py, pz] = person.position; const [tx, , tz] = target.position;
+    const dx = tx - px; const dz = tz - pz; const distance = Math.hypot(dx, dz);
+    if (distance < 1.25) return;
+    const metresPerSecond = person.mobility.mode === 'powered-wheelchair' ? 1.25 : 0.9;
+    const amount = Math.min(distance, metresPerSecond * seconds);
+    const next: Vec3 = [px + dx / distance * amount, py, pz + dz / distance * amount];
+    this.store.move(person.id, next);
   }
 }
