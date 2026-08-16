@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { InfrastructureEntity, PersonEntity, PersistentWorldStore, accessAssessment } from './worldModel';
+import { LiveWorldLoop } from './liveWorldLoop';
 
 export function OpenWorldWeb() {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -8,10 +9,13 @@ export function OpenWorldWeb() {
   const [status, setStatus] = useState('Loading world…');
   const [xr, setXr] = useState('Checking WebXR…');
   const [access, setAccess] = useState('ACCESS NETWORK ONLINE');
+  const [life, setLife] = useState('DAILY LIFE ENGINE STARTING');
+  const [clinical, setClinical] = useState('CLINICAL BRIDGE · STANDBY');
 
   useEffect(() => {
     let disposed = false; let engine: any; let scene: any;
     const store = storeRef.current!;
+    const loop = new LiveWorldLoop(store);
     const boot = async () => {
       const B = await import('@babylonjs/core'); await import('@babylonjs/loaders');
       if (!canvasRef.current || disposed) return;
@@ -32,7 +36,7 @@ export function OpenWorldWeb() {
         if (entity.kind==='person') {
           const p=entity as PersonEntity;
           const body=B.MeshBuilder.CreateCapsule(entity.id,{height:1.35,radius:.3},scene); body.position.set(p.position[0],1.05,p.position[2]); body.material=personMat; meshes.set(entity.id,body);
-          if(p.mobility.mode.includes('wheelchair')) { const chair=B.MeshBuilder.CreateBox(entity.id+'-mobility',{width:.85,height:.55,depth:1.05},scene); chair.position.set(p.position[0],.38,p.position[2]); chair.material=personMat; }
+          if(p.mobility.mode.includes('wheelchair')) { const chair=B.MeshBuilder.CreateBox(entity.id+'-mobility',{width:.85,height:.55,depth:1.05},scene); chair.position.set(p.position[0],.38,p.position[2]); chair.material=personMat; meshes.set(entity.id+'-mobility',chair); }
         }
         if(entity.kind==='infrastructure') {
           const i=entity as InfrastructureEntity; const marker=B.MeshBuilder.CreateCylinder(entity.id,{height:1.5,diameter:.65},scene); marker.position.set(i.position[0],.75,i.position[2]); marker.material=i.operational?accessMat:unavailableMat; meshes.set(i.id,marker);
@@ -40,20 +44,27 @@ export function OpenWorldWeb() {
       }
       for(let i=0;i<28;i++){const a=i*2.399,r=46+(i%4)*9,t=B.MeshBuilder.CreateCylinder('tree-'+i,{height:5,diameterTop:.5,diameterBottom:2.4,tessellation:7},scene);t.position.set(Math.cos(a)*r,2.5,Math.sin(a)*r);t.material=material('tree-'+i,.16,.38,.17);}
 
-      let last=performance.now();
-      scene.onBeforeRenderObservable.add(()=>{const now=performance.now(); if(now-last>1000){store.tick((now-last)/1000);last=now;} const maya=store.entity('maya') as PersonEntity|undefined; const lift=store.entity('station-lift') as InfrastructureEntity|undefined; if(maya&&lift){const assessment=accessAssessment(maya,lift);setAccess(`TRANSIT ACCESS: ${assessment.pass?'AVAILABLE':'BARRIER'} · ${assessment.cause}`);}});
+      let last=performance.now(); let uiLast=0;
+      scene.onBeforeRenderObservable.add(()=>{
+        const now=performance.now(); const elapsed=Math.max(0,(now-last)/1000); last=now;
+        const frame=loop.step(elapsed);
+        const snapshot=store.snapshot();
+        for(const entity of snapshot.entities){const mesh=meshes.get(entity.id);if(mesh)mesh.position.x=entity.position[0],mesh.position.z=entity.position[2];if(entity.kind==='infrastructure'&&mesh)mesh.material=(entity as InfrastructureEntity).operational?accessMat:unavailableMat;}
+        if(now-uiLast>1000){uiLast=now;const maya=store.entity('maya') as PersonEntity|undefined;const lift=store.entity('station-lift') as InfrastructureEntity|undefined;if(maya&&lift){const assessment=accessAssessment(maya,lift);setAccess(`TRANSIT ACCESS: ${assessment.pass?'AVAILABLE':'BARRIER'} · ${assessment.cause}`);}const activity=frame.activities.find((item)=>item.personId==='maya');setLife(activity?`MAYA · ${activity.kind.toUpperCase()} · ${activity.rationale}`:'MAYA · NO ACTIVE PLAN');const bridge=frame.clinical.find((item)=>item.personId==='maya');setClinical(`CLINICAL BRIDGE · ${(bridge?.status??'continue-world').toUpperCase().replaceAll('-',' ')}`);}
+      });
       try { const helper=await scene.createDefaultXRExperienceAsync({floorMeshes:[ground,path],disableTeleportation:false}); setXr(helper.baseExperience?'VR READY · use headset Enter VR control':'VR unavailable'); } catch { setXr('WebXR not available on this browser/device'); }
-      setStatus('PERSISTENT WORLD ONLINE · WASD / mouse / WebXR'); engine.runRenderLoop(()=>scene.render()); const resize=()=>engine.resize();window.addEventListener('resize',resize);(scene as any).__cleanup=()=>window.removeEventListener('resize',resize);
+      setStatus('LIVE WORLD ONLINE · WASD / mouse / WebXR'); engine.runRenderLoop(()=>scene.render()); const resize=()=>engine.resize();window.addEventListener('resize',resize);(scene as any).__cleanup=()=>window.removeEventListener('resize',resize);
     };
     boot(); return()=>{disposed=true;scene?.__cleanup?.();scene?.dispose?.();engine?.dispose?.();};
   },[]);
 
   const toggleLift=()=>{const store=storeRef.current!;const lift=store.entity('station-lift') as InfrastructureEntity;store.setInfrastructure('station-lift',!lift.operational);};
-  const toggleAAC=()=>{const store=storeRef.current!;const maya=store.entity('maya') as PersonEntity;store.setCommunicationAccess('maya',maya.communication.access==='available'?'degraded':'available');setStatus(`MAYA AAC ACCESS · ${store.entity('maya') && (store.entity('maya') as PersonEntity).communication.access.toUpperCase()}`);};
+  const toggleAAC=()=>{const store=storeRef.current!;const maya=store.entity('maya') as PersonEntity;store.setCommunicationAccess('maya',maya.communication.access==='available'?'degraded':'available');setStatus(`MAYA AAC ACCESS · ${(store.entity('maya') as PersonEntity).communication.access.toUpperCase()}`);};
+  const resetWorld=()=>{storeRef.current!.reset();setStatus('WORLD RESET · PERSON AUTHORITY AND BASELINES RESTORED');};
 
   return <div style={{position:'fixed',inset:0,background:'#111'}}>
-    <canvas ref={canvasRef} aria-label="Interactive persistent disability-inclusive 3D open world. Desktop uses WASD and mouse; compatible WebXR headsets can enter VR." style={{width:'100%',height:'100%',touchAction:'none',display:'block'}} />
-    <div role="status" aria-live="polite" style={{position:'absolute',top:16,left:16,maxWidth:480,padding:'12px 14px',borderRadius:12,background:'rgba(8,18,28,.9)',color:'white',fontFamily:'system-ui'}}><strong>MERT · PERSISTENT DISABILITY WORLD</strong><br/><span>{status}</span><br/><span>{xr}</span><br/><span>{access}</span><br/><small>Clinical Centre · Community · Rehab · Accessible Transit</small><div style={{display:'flex',gap:8,marginTop:10,flexWrap:'wrap'}}><button onClick={toggleLift} style={{padding:10}}>Toggle station lift</button><button onClick={toggleAAC} style={{padding:10}}>Toggle Maya AAC access</button></div></div>
-    <div style={{position:'absolute',right:16,bottom:16,maxWidth:360,padding:12,borderRadius:12,background:'rgba(8,18,28,.86)',color:'white',fontFamily:'system-ui',fontSize:13}}>Accessibility is causal: infrastructure failure is recorded as an environmental barrier; AAC access changes observability, not Maya's authority or cognition. State persists locally between sessions.</div>
+    <canvas ref={canvasRef} aria-label="Interactive live disability-inclusive 3D open world. Desktop uses WASD and mouse; compatible WebXR headsets can enter VR. A non-spatial status interface describes world state." style={{width:'100%',height:'100%',touchAction:'none',display:'block'}} />
+    <div role="status" aria-live="polite" style={{position:'absolute',top:16,left:16,maxWidth:560,padding:'12px 14px',borderRadius:12,background:'rgba(8,18,28,.9)',color:'white',fontFamily:'system-ui'}}><strong>MERT · LIVE DISABILITY WORLD</strong><br/><span>{status}</span><br/><span>{xr}</span><br/><span>{access}</span><br/><span>{life}</span><br/><span>{clinical}</span><br/><small>Clinical Centre · Community · Rehab · Accessible Transit</small><div style={{display:'flex',gap:8,marginTop:10,flexWrap:'wrap'}}><button onClick={toggleLift} style={{padding:10}}>Toggle station lift</button><button onClick={toggleAAC} style={{padding:10}}>Toggle Maya AAC access</button><button onClick={resetWorld} style={{padding:10}}>Reset world</button></div></div>
+    <div style={{position:'absolute',right:16,bottom:16,maxWidth:380,padding:12,borderRadius:12,background:'rgba(8,18,28,.86)',color:'white',fontFamily:'system-ui',fontSize:13}}>The live loop runs bounded daily-life planning, affordance evaluation, VNN proposals, social interactions and the evidence-gated clinical bridge. Accessibility changes world causality; it does not rewrite Maya's cognition, authority or underlying capacity.</div>
   </div>;
 }
