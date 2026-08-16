@@ -9,7 +9,10 @@ describe('advanced disability world invariants', () => {
     const state = JSON.parse(JSON.stringify(initialOpenWorldState));
     const maya = state.entities.find((entity: any) => entity.id === 'maya');
     maya.communication.access = 'unavailable';
-    const interaction = interact(state, defaultSocialAgents[0], 'maya', 'ask');
+    const agent = defaultSocialAgents[0];
+    expect(agent).toBeDefined();
+    if (!agent) return;
+    const interaction = interact(state, agent, 'maya', 'ask');
     expect(interaction?.outcome).toBe('unknown');
     expect(maya.authority).toBe('self');
   });
