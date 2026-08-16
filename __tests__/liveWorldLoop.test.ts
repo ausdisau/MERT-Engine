@@ -1,14 +1,17 @@
 import { defaultSchedules, runDailyLifeTick } from '../src/world/dailyLife';
 import { LiveWorldLoop } from '../src/world/liveWorldLoop';
 import { addInfrastructure, exportWorldDraft, validateWorldDraft } from '../src/world/scenarioStudio';
-import { initialOpenWorldState, PersistentWorldStore } from '../src/world/worldModel';
+import { initialOpenWorldState, PersistentWorldStore, type PersonEntity } from '../src/world/worldModel';
 
 describe('live disability world integration', () => {
   it('plans daily life without replacing person authority', () => {
-    const tick = runDailyLifeTick(initialOpenWorldState, defaultSchedules[0]);
+    const schedule = defaultSchedules[0];
+    expect(schedule).toBeDefined();
+    if (!schedule) return;
+    const tick = runDailyLifeTick(initialOpenWorldState, schedule);
     expect(tick.activity?.personId).toBe('maya');
-    const maya = initialOpenWorldState.entities.find((entity) => entity.id === 'maya');
-    expect(maya?.kind === 'person' && maya.authority).toBe('self');
+    const maya = initialOpenWorldState.entities.find((entity): entity is PersonEntity => entity.id === 'maya' && entity.kind === 'person');
+    expect(maya?.authority).toBe('self');
   });
 
   it('runs the bounded world loop and records dynamics events', () => {
