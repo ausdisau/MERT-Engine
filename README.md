@@ -1,43 +1,47 @@
 # MERT Engine
 
-Cross-platform disability-inclusive medical simulation runtime for web, iOS and Android.
+Cross-platform disability-inclusive medical simulation runtime for web, iOS and Android, with a Babylon.js/WebXR persistent open world.
 
 ## Architecture status
 
-### Step 1 — Typed protocol + patient/world state
-- Shared TypeScript contracts for physiology, AAC, authority, access, systems, uncertainty and evidence.
-- Typed `SimulationEvent` transport.
+### Steps 1-6 — Simulation kernel
+- Typed physiology, AAC, authority, access, systems, uncertainty and evidence state.
+- Central `SimulationKernel` with audit history and simulation-clock control.
+- React/React Native is view-controller only; it does not own clinical/world truth.
+- Declarative scenario rules: trigger -> conditions -> delay -> effects -> transition.
+- VNN dynamics modules return proposals with confidence, rationale and provenance before commit.
 
-### Step 2 — Simulation kernel + safety invariants
-- Central `SimulationKernel` owns world state, event audit and simulation time.
-- AAC composition can pause simulation time.
-- Protected invariants prevent communication failure from being converted into loss of self-authority.
+### Steps 7-20 — Persistent disability world
+- Persistent people, places, infrastructure, relationships and schedules.
+- Affordance-based autonomy and environmental attribution of access barriers.
+- Social agents with bounded knowledge and direct-first communication safeguards.
+- Semantic interaction parity across WebXR controller, gaze, touch, keyboard and switch-style input.
+- Counterfactual timeline and world -> clinical bridge.
 
-### Step 3 — React/React Native as view-controller
-- UI sends semantic scenario events and renders snapshots.
-- UI does not own clinical/world truth.
+### Steps 21-24 — Accessible routes, objects and continuity
+- Accessibility-weighted route planning across paths, ramps, crossings, lifts and transport.
+- Stateful doors, lift motion, AAC charging and explicit transport boarding.
+- Proximity + relationship social encounters where support is requested rather than assumed.
+- World -> ambulance -> ED -> ICU -> MERT -> discharge -> community continuity.
 
-### Step 4 — Scenario Engine
-- `DeclarativeScenarioEngine` owns branch progression, delayed consequences and node state.
+### Steps 25-28 — Procedural city runtime
+- Deterministic procedural city with residential, community, health, education, employment and transport districts.
+- Generated triangulated navmesh geometry with A* pathfinding and person-specific access constraints.
+- Persistent homes with power/charging state plus an accessible city transport service with explicit capacity allocation and boarding.
+- Autonomous emergency-service dispatch linked only to an active evidence-gated ambulance continuity stage.
+- Babylon/WebXR rendering for city buildings, roads, navmesh overlay, accessible transport and emergency vehicles.
 
-### Step 5 — Declarative Scenario Rules
-- Case logic is represented as data: trigger → conditions → delay → effects → transition.
-- Rules can request domain-model dynamics instead of directly hard-coding every consequence.
-
-### Step 6 — World-State / VNN Dynamics Modules
-- `VNNDynamicsCoordinator` routes `dynamics.requested` events to registered modules.
-- Included example modules:
-  - `respiratory-dynamics`
-  - `access-dynamics`
-- Dynamics return proposals with confidence, rationale and provenance before world-state events are committed through the kernel.
-
-## Core invariant
+## Core invariants
 
 ```text
 communication failure != incapacity
 disability != acute deterioration
 model proposal != clinical truth
 equipment availability != indication
+friend/support worker != substitute authority
+route failure != person failure
+transport allocation != consent to board
+emergency dispatch != treatment inference
 ```
 
 ## Running
@@ -59,15 +63,8 @@ The resulting `dist/` directory is configured for Vercel through `vercel.json`.
 
 ## Testing
 
-The UI tests use React Native Testing Library v14 interaction patterns and query the interface by accessible roles and labels rather than implementation details.
-
-The runtime tests cover:
-- AAC restoration without authority transfer
-- simulation-clock pause during AAC composition
-- delayed declarative deterioration
-- VNN dynamics invocation
-- protected authority invariants
+The UI tests use React Native Testing Library interaction patterns and query the interface through accessible roles and names. Runtime tests cover authority preservation, AAC access, simulation timing, declarative deterioration, VNN invocation, persistent world state, route barriers, object state, social support non-assumption, clinical continuity, procedural-city determinism, navmesh generation, transport allocation and emergency dispatch gating.
 
 ## Scope
 
-MERT Engine is educational simulation software. Scenario physiology and dynamics are authored educational models, not real-patient prediction, diagnosis, treatment guidance or device-control logic.
+MERT Engine is educational simulation software. Scenario physiology, accessibility thresholds, route weights, vehicle speeds and emergency-response timings are authored simulation parameters, not real-patient prediction, diagnosis, treatment guidance, device-control logic or statutory accessibility standards.
